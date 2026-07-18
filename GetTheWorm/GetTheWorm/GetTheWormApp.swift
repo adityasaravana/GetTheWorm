@@ -17,7 +17,15 @@ struct GetTheWormApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // A store that can't open (failed migration, corruption) must not
+            // brick the alarm clock. Losing the single settings object is the
+            // lesser evil: wipe and start fresh.
+            try? FileManager.default.removeItem(at: modelConfiguration.url)
+            do {
+                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create ModelContainer even after reset: \(error)")
+            }
         }
     }()
 

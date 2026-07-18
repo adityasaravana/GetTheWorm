@@ -13,6 +13,7 @@ import AlarmKit
 import AppIntents
 import Foundation
 import SwiftUI
+import os
 
 /// AlarmKit requires a metadata type; we have nothing to attach.
 struct WormMetadata: AlarmMetadata {}
@@ -29,6 +30,7 @@ struct ShowGrassIntent: LiveActivityIntent {
 @Observable
 final class AlarmScheduler {
     private let manager = AlarmManager.shared
+    private let log = Logger(subsystem: "com.adityasaravana.GetTheWorm", category: "scheduler")
 
     var authorizationDenied = false
 
@@ -43,6 +45,7 @@ final class AlarmScheduler {
             return false
         case .notDetermined:
             let state = try? await manager.requestAuthorization()
+            log.info("authorization requested, result: \(String(describing: state))")
             authorizationDenied = state != .authorized
             return state == .authorized
         @unknown default:
@@ -66,7 +69,9 @@ final class AlarmScheduler {
         do {
             _ = try await manager.schedule(id: mainID, configuration: configuration(schedule: schedule))
             settings.mainAlarmID = mainID
+            log.info("main weekly alarm scheduled: \(mainID) at \(settings.hour):\(settings.minute)")
         } catch {
+            log.error("failed to schedule main alarm: \(error)")
             return
         }
         await scheduleBackups(settings)
@@ -91,10 +96,12 @@ final class AlarmScheduler {
                 _ = try await manager.schedule(id: id, configuration: configuration(schedule: .fixed(fireDate)))
                 ids.append(id)
             } catch {
+                log.warning("backup chain stopped at \(ids.count)/\(WormClock.backupCount): \(error)")
                 break
             }
         }
         settings.backupAlarmIDs = ids
+        log.info("backup chain scheduled: \(ids.count) alarms starting \(next.addingTimeInterval(WormClock.spacing))")
     }
 
     // MARK: Victory
@@ -133,7 +140,8 @@ final class AlarmScheduler {
         let ringing = WormClock.isRinging(
             hour: settings.hour, minute: settings.minute,
             weekdays: settings.weekdays, isEnabled: settings.isEnabled,
-            lastVictoryDate: settings.lastVictoryDate, now: .now)
+            lastVictoryDate: settings.lastVictoryDate,
+            armedAt: settings.armedAt, now: .now)
         guard !ringing else { return }
 
         // Outside the window: silence any stale alerting alarms and rebuild the chain.

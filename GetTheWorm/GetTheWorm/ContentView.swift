@@ -24,7 +24,8 @@ struct ContentView: View {
                     let ringing = WormClock.isRinging(
                         hour: settings.hour, minute: settings.minute,
                         weekdays: settings.weekdays, isEnabled: settings.isEnabled,
-                        lastVictoryDate: settings.lastVictoryDate, now: timeline.date)
+                        lastVictoryDate: settings.lastVictoryDate,
+                        armedAt: settings.armedAt, now: timeline.date)
                     if showVictory {
                         VictoryView { showVictory = false }
                     } else if ringing {

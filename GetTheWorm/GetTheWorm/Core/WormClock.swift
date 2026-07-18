@@ -57,12 +57,16 @@ enum WormClock {
     /// get you out of this.
     static func isRinging(
         hour: Int, minute: Int, weekdays: [Int], isEnabled: Bool,
-        lastVictoryDate: Date?, now: Date, calendar: Calendar = .current
+        lastVictoryDate: Date?, armedAt: Date, now: Date, calendar: Calendar = .current
     ) -> Bool {
         guard isEnabled, !weekdays.isEmpty else { return false }
         guard let start = previousOccurrence(
             hour: hour, minute: minute, weekdays: weekdays,
             onOrBefore: now, calendar: calendar) else { return false }
+        // Only occurrences that began after the settings were last touched
+        // count — dialing the alarm to a time in the recent past must not
+        // ambush you into ringing mode.
+        guard start >= armedAt else { return false }
         guard now < start.addingTimeInterval(windowDuration) else { return false }
         if let victory = lastVictoryDate, victory >= start { return false }
         return true

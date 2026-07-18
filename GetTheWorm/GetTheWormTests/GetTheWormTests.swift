@@ -64,10 +64,13 @@ struct WormClockTests {
 
     // MARK: isRinging
 
-    private func ringing(now: Date, victory: Date? = nil, enabled: Bool = true, weekdays: [Int] = [2]) -> Bool {
+    private func ringing(
+        now: Date, victory: Date? = nil, enabled: Bool = true,
+        weekdays: [Int] = [2], armedAt: Date = .distantPast
+    ) -> Bool {
         WormClock.isRinging(
             hour: 7, minute: 0, weekdays: weekdays, isEnabled: enabled,
-            lastVictoryDate: victory, now: now, calendar: utc)
+            lastVictoryDate: victory, armedAt: armedAt, now: now, calendar: utc)
     }
 
     @Test func ringsInsideWindow() {
@@ -97,6 +100,14 @@ struct WormClockTests {
     @Test func inactiveWeekdayDoesNotRing() {
         // Tuesday 7:10 with only Monday armed: Monday's window ended long ago.
         #expect(!ringing(now: date(14, 7, 10)))
+    }
+
+    @Test func dialingIntoRecentPastDoesNotAmbush() {
+        // Setting the alarm to a time 10 minutes ago (settings touched *after*
+        // that occurrence began) must not enter ringing mode.
+        #expect(!ringing(now: date(13, 7, 10), armedAt: date(13, 7, 9)))
+        // But an occurrence that begins after arming rings normally.
+        #expect(ringing(now: date(13, 7, 10), armedAt: date(13, 6, 0)))
     }
 }
 
@@ -130,14 +141,22 @@ struct DisplayFormattingTests {
         #expect(display.text == " 7:04")
     }
 
-    @Test func colonBlinksWithSeconds() {
-        #expect(ClockRadioView.displayTime(for: time(7, 4, second: 2), calendar: utc).text.contains(":"))
-        #expect(!ClockRadioView.displayTime(for: time(7, 4, second: 3), calendar: utc).text.contains(":"))
+    @Test func colonBlinksWithoutChangingText() {
+        // The colon must stay in the string (only its brightness changes),
+        // or glyph widths shift and the whole display jumps.
+        let even = ClockRadioView.displayTime(for: time(7, 4, second: 2), calendar: utc)
+        let odd = ClockRadioView.displayTime(for: time(7, 4, second: 3), calendar: utc)
+        #expect(even.text == odd.text)
+        #expect(even.colonVisible && !odd.colonVisible)
     }
 
     @Test func alarmTimeFormatsTwelveHour() {
-        #expect(ClockRadioView.alarmTimeText(AlarmSettings(hour: 0, minute: 5)) == "12:05")
-        #expect(ClockRadioView.alarmTimeText(AlarmSettings(hour: 13, minute: 45)) == " 1:45")
+        let midnight = ClockRadioView.alarmTime(AlarmSettings(hour: 0, minute: 5))
+        #expect(midnight.text == "12:05")
+        #expect(!midnight.isPM)
+        let afternoon = ClockRadioView.alarmTime(AlarmSettings(hour: 13, minute: 45))
+        #expect(afternoon.text == " 1:45")
+        #expect(afternoon.isPM)
     }
 }
 

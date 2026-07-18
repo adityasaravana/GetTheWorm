@@ -44,27 +44,48 @@ struct LEDText: View {
     var size: CGFloat
     var color: Color = WormTheme.ledRed
     var style: Style = .sevenSegment
+    /// Renders the colon at ghost brightness (for blinking) without ever
+    /// changing the string — glyph widths must stay identical or the display
+    /// shifts.
+    var dimColon: Bool = false
 
     private var font: Font {
         style == .sevenSegment ? WormTheme.sevenSegment(size) : WormTheme.fourteenSegment(size)
     }
 
+    private var ghostColor: Color { color.opacity(0.09) }
+
     /// Every character position shows its full unlit segment set behind the lit ones.
     private var ghostText: String {
         String(text.map { character in
             switch character {
-            case ":", ".": character
+            case ":", ".", " ": character
             default: "8"
             }
         })
+    }
+
+    private var litText: AttributedString {
+        var attributed = AttributedString(text)
+        if dimColon {
+            var index = attributed.startIndex
+            for character in text {
+                let next = attributed.index(index, offsetByCharacters: 1)
+                if character == ":" {
+                    attributed[index..<next].foregroundColor = ghostColor
+                }
+                index = next
+            }
+        }
+        return attributed
     }
 
     var body: some View {
         ZStack(alignment: .trailing) {
             Text(ghostText)
                 .font(font)
-                .foregroundStyle(color.opacity(0.09))
-            Text(text)
+                .foregroundStyle(ghostColor)
+            Text(litText)
                 .font(font)
                 .foregroundStyle(color)
                 .shadow(color: color.opacity(0.85), radius: size * 0.10)
@@ -152,6 +173,59 @@ struct DIPSwitch: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: isOn)
+    }
+}
+
+/// The big physical ALARM on/off rocker: nub up = armed.
+struct RockerSwitch: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("ON")
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .embossedLabel(bright: isOn)
+            ZStack(alignment: isOn ? .top : .bottom) {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(WormTheme.well)
+                    .frame(width: 34, height: 58)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 5)
+                            .strokeBorder(.black.opacity(0.7), lineWidth: 1.2)
+                    }
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(
+                        LinearGradient(
+                            colors: isOn
+                                ? [Color(red: 0.85, green: 0.25, blue: 0.20), Color(red: 0.55, green: 0.10, blue: 0.08)]
+                                : [Color(white: 0.55), Color(white: 0.34)],
+                            startPoint: .top, endPoint: .bottom))
+                    .frame(width: 26, height: 26)
+                    .overlay {
+                        // grip ridges
+                        VStack(spacing: 3) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                Capsule().fill(.black.opacity(0.25)).frame(width: 14, height: 1.5)
+                            }
+                        }
+                    }
+                    .shadow(color: .black.opacity(0.6), radius: 1.5, y: 1.5)
+                    .padding(4)
+            }
+            Text("OFF")
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .embossedLabel(bright: !isOn)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.65)) {
+                isOn.toggle()
+            }
+        }
+        .sensoryFeedback(.impact(weight: .heavy), trigger: isOn)
+        .accessibilityRepresentation {
+            Toggle("Alarm armed", isOn: $isOn)
+        }
     }
 }
 

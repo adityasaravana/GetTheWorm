@@ -2,7 +2,7 @@
 //  ClockRadioView.swift
 //  GetTheWorm
 //
-//  The face of the machine: a bedside LED clock radio, model GTW-1990.
+//  The face of the machine: a bedside LED clock radio by AdityaCorp.
 //
 
 import SwiftData
@@ -38,9 +38,9 @@ struct ClockRadioView: View {
         VStack(spacing: 16) {
             brandPlate
             displayWindow
-            controlPanel
+            alarmPanel
             SpeakerGrille()
-                .frame(height: 90)
+                .frame(height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
@@ -73,9 +73,9 @@ struct ClockRadioView: View {
                 .kerning(3)
                 .embossedLabel()
             Spacer()
-            Text("MODEL GTW-1990")
-                .font(.system(size: 8, weight: .semibold, design: .rounded))
-                .kerning(1)
+            Text("AdityaCorp")
+                .font(.system(size: 10, weight: .bold, design: .serif))
+                .italic()
                 .embossedLabel()
         }
         .padding(.horizontal, 4)
@@ -86,18 +86,11 @@ struct ClockRadioView: View {
             let time = Self.displayTime(for: timeline.date)
             VStack(spacing: 10) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 6) {
-                            LEDText(text: "AL", size: 11, color: WormTheme.ledAmber, style: .fourteenSegment)
-                            LEDText(text: Self.alarmTimeText(settings), size: 11, color: WormTheme.ledAmber)
-                        }
-                        .opacity(settings.isEnabled ? 1 : 0.28)
-                        HStack(spacing: 5) {
-                            IndicatorLED(on: settings.isEnabled)
-                            Text("ARMED")
-                                .font(.system(size: 7, weight: .bold, design: .rounded))
-                                .foregroundStyle(WormTheme.labelText.opacity(0.8))
-                        }
+                    HStack(spacing: 5) {
+                        IndicatorLED(on: settings.isEnabled)
+                        Text("ARMED")
+                            .font(.system(size: 7, weight: .bold, design: .rounded))
+                            .foregroundStyle(WormTheme.labelText.opacity(0.8))
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 6) {
@@ -105,7 +98,7 @@ struct ClockRadioView: View {
                         LEDText(text: Self.weekdayText(for: timeline.date), size: 9, color: WormTheme.ledRed, style: .fourteenSegment)
                     }
                 }
-                LEDText(text: time.text, size: 58)
+                LEDText(text: time.text, size: 58, dimColon: !time.colonVisible)
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 16)
@@ -129,39 +122,57 @@ struct ClockRadioView: View {
         }
     }
 
-    private var controlPanel: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 10) {
-                Button("HOUR") {
-                    settings.hour = (settings.hour + 1) % 24
-                }
-                Button("MIN") {
-                    settings.minute = (settings.minute + 1) % 60
+    /// Everything below the glass configures the one alarm this thing exists for.
+    private var alarmPanel: some View {
+        let alarm = Self.alarmTime(settings)
+        return VStack(spacing: 12) {
+            HStack {
+                Text("ALARM")
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .kerning(2)
+                    .embossedLabel()
+                Spacer()
+            }
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 7) {
+                        LEDText(text: alarm.text, size: 24, color: WormTheme.ledAmber)
+                        LEDText(text: alarm.isPM ? "PM" : "AM", size: 11, color: WormTheme.ledAmber, style: .fourteenSegment)
+                    }
+                    .opacity(settings.isEnabled ? 1 : 0.35)
+                    HStack(spacing: 8) {
+                        Button("HOUR") {
+                            settings.hour = (settings.hour + 1) % 24
+                        }
+                        Button("MIN") {
+                            settings.minute = (settings.minute + 1) % 60
+                        }
+                        Text("SET")
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .embossedLabel()
+                    }
+                    .buttonStyle(PlasticButtonStyle())
+                    .buttonRepeatBehavior(.enabled)
                 }
                 Spacer()
-                Button(settings.isEnabled ? "ALARM ON" : "ALARM OFF") {
-                    settings.isEnabled.toggle()
-                }
+                RockerSwitch(isOn: $settings.isEnabled)
             }
-            .buttonStyle(PlasticButtonStyle())
-            .buttonRepeatBehavior(.enabled)
-
             HStack(spacing: 0) {
                 ForEach(Self.weekdayLabels, id: \.number) { day in
                     DIPSwitch(label: day.letter, isOn: weekdayBinding(day.number))
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 6)
-            .background {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(WormTheme.panel)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(.black.opacity(0.45), lineWidth: 1)
-                    }
-            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(WormTheme.panel)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.black.opacity(0.45), lineWidth: 1)
+                }
         }
     }
 
@@ -180,8 +191,11 @@ struct ClockRadioView: View {
     }
 
     /// Settings changes re-register everything with AlarmKit; debounced so
-    /// button-mashing HOUR doesn't schedule 30 alarms per tap.
+    /// button-mashing HOUR doesn't schedule 30 alarms per tap. The armedAt
+    /// stamp updates immediately (not debounced) so a half-dialed time can
+    /// never trip the ringing predicate.
     private func scheduleRearm(debounced: Bool = true) {
+        settings.armedAt = .now
         rearmTask?.cancel()
         rearmTask = Task {
             if debounced {
@@ -194,18 +208,17 @@ struct ClockRadioView: View {
 
     // MARK: Formatting
 
-    static func displayTime(for date: Date, calendar: Calendar = .current) -> (text: String, isPM: Bool) {
+    static func displayTime(for date: Date, calendar: Calendar = .current) -> (text: String, colonVisible: Bool, isPM: Bool) {
         let components = calendar.dateComponents([.hour, .minute, .second], from: date)
         let hour24 = components.hour ?? 0
         let hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12
-        let colon = (components.second ?? 0).isMultiple(of: 2) ? ":" : " "
-        let text = String(format: "%2d\(colon)%02d", hour12, components.minute ?? 0)
-        return (text, hour24 >= 12)
+        let text = String(format: "%2d:%02d", hour12, components.minute ?? 0)
+        return (text, (components.second ?? 0).isMultiple(of: 2), hour24 >= 12)
     }
 
-    static func alarmTimeText(_ settings: AlarmSettings) -> String {
+    static func alarmTime(_ settings: AlarmSettings) -> (text: String, isPM: Bool) {
         let hour12 = settings.hour % 12 == 0 ? 12 : settings.hour % 12
-        return String(format: "%2d:%02d", hour12, settings.minute)
+        return (String(format: "%2d:%02d", hour12, settings.minute), settings.hour >= 12)
     }
 
     static func weekdayText(for date: Date, calendar: Calendar = .current) -> String {
