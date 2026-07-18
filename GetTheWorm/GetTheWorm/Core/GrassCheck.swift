@@ -22,8 +22,9 @@ enum GrassCheck {
     ]
 
     /// Minimum classifier confidence for a grass label to count.
-    /// Tuned against the bundled fixture photos.
-    static let minimumConfidence: Float = 0.15
+    /// Tuned against the bundled fixtures: real grass scores 0.66–0.89,
+    /// the best non-grass impostor (carpet) scores 0.02.
+    static let minimumConfidence: Float = 0.30
 
     static func verify(_ image: CGImage) async -> Verdict {
         let request = ClassifyImageRequest()

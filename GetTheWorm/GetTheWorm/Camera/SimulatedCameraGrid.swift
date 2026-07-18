@@ -11,7 +11,11 @@
 import SwiftUI
 
 struct SimulatedCameraGrid: View {
-    var onPick: (UIImage) -> Void
+    /// Second parameter is the fixture's ground truth ("is this grass"), taken
+    /// from its filename. Vision's classifier cannot run in the simulator
+    /// ("failed to create espresso context"), so the simulator flow trusts the
+    /// fixture label; the real classifier runs on device.
+    var onPick: (UIImage, Bool) -> Void
 
     private let fixtures = Self.loadFixtures()
 
@@ -43,7 +47,7 @@ struct SimulatedCameraGrid: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
                     ForEach(fixtures, id: \.name) { fixture in
                         Button {
-                            onPick(fixture.image)
+                            onPick(fixture.image, fixture.name.contains("grass"))
                         } label: {
                             VStack(spacing: 4) {
                                 Image(uiImage: fixture.image)

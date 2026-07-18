@@ -63,8 +63,8 @@ struct RingingView: View {
     private var viewfinder: some View {
         ZStack {
             #if targetEnvironment(simulator)
-            SimulatedCameraGrid { image in
-                Task { await verify(image) }
+            SimulatedCameraGrid { image, isGrassTruth in
+                Task { await verify(image, simulatorGroundTruth: isGrassTruth) }
             }
             #else
             switch camera.status {
@@ -164,14 +164,24 @@ struct RingingView: View {
         #endif
     }
 
-    private func verify(_ image: UIImage) async {
+    private func verify(_ image: UIImage, simulatorGroundTruth: Bool? = nil) async {
         guard let cgImage = image.cgImage else {
             failMessage = "BAD PHOTO. TRY AGAIN."
             return
         }
         isVerifying = true
         failMessage = nil
-        let verdict = await GrassCheck.verify(cgImage)
+        let verdict: GrassCheck.Verdict
+        #if targetEnvironment(simulator)
+        // Vision classification is unavailable in the simulator (espresso
+        // context failure); fixtures carry their ground truth instead.
+        try? await Task.sleep(for: .milliseconds(600))
+        verdict = GrassCheck.Verdict(
+            isGrass: simulatorGroundTruth ?? false,
+            observations: [("simulator-fixture", 1.0)])
+        #else
+        verdict = await GrassCheck.verify(cgImage)
+        #endif
         isVerifying = false
         lastObservations = verdict.observations
         if verdict.isGrass {
