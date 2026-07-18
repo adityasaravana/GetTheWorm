@@ -70,7 +70,7 @@ struct StopRespawnIntent: LiveActivityIntent {
 /// Shared alarm configuration, used by the scheduler and the respawn intent.
 func wormAlarmConfiguration(schedule: Alarm.Schedule) -> AlarmManager.AlarmConfiguration<WormMetadata> {
     let alert = AlarmPresentation.Alert(
-        title: "Get up. Get the worm. 🪱",
+        title: "Wake up!",
         stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill"),
         secondaryButton: AlarmButton(text: "Show Grass", textColor: .green, systemImageName: "camera.fill"),
         secondaryButtonBehavior: .custom)
