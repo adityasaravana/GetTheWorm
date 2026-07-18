@@ -34,4 +34,4 @@ There are unit tests for the alarm date math, display formatting, and the grass 
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+See [LICENSE](LICENSE).
