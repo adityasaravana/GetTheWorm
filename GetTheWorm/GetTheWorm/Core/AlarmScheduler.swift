@@ -1,0 +1,191 @@
+//
+//  AlarmScheduler.swift
+//  GetTheWorm
+//
+//  AlarmKit integration. The strategy: one recurring weekly alarm (the backbone,
+//  always survives) plus a chain of one-shot backups a minute apart for the next
+//  occurrence. Stopping any of them from the lock screen is futile — the rest of
+//  the chain is already queued with the OS. Only a grass photo cancels the chain.
+//
+
+import ActivityKit
+import AlarmKit
+import AppIntents
+import Foundation
+import SwiftUI
+
+/// AlarmKit requires a metadata type; we have nothing to attach.
+struct WormMetadata: AlarmMetadata {}
+
+/// Secondary alert button: launches the app into the ringing screen.
+struct ShowGrassIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Show Grass"
+    static let openAppWhenRun = true
+    static let isDiscoverable = false
+    func perform() async throws -> some IntentResult { .result() }
+}
+
+@MainActor
+@Observable
+final class AlarmScheduler {
+    private let manager = AlarmManager.shared
+
+    var authorizationDenied = false
+
+    // MARK: Authorization
+
+    func requestAuthorizationIfNeeded() async -> Bool {
+        switch manager.authorizationState {
+        case .authorized:
+            return true
+        case .denied:
+            authorizationDenied = true
+            return false
+        case .notDetermined:
+            let state = try? await manager.requestAuthorization()
+            authorizationDenied = state != .authorized
+            return state == .authorized
+        @unknown default:
+            return false
+        }
+    }
+
+    // MARK: Arming
+
+    /// Tear down and rebuild everything from current settings.
+    func rearm(_ settings: AlarmSettings) async {
+        cancelAll(settings)
+        guard settings.isEnabled, !settings.weekdays.isEmpty else { return }
+        guard await requestAuthorizationIfNeeded() else { return }
+
+        let localeWeekdays = settings.weekdays.compactMap(Locale.Weekday.init(calendarWeekday:))
+        let schedule = Alarm.Schedule.relative(.init(
+            time: .init(hour: settings.hour, minute: settings.minute),
+            repeats: .weekly(localeWeekdays)))
+        let mainID = UUID()
+        do {
+            _ = try await manager.schedule(id: mainID, configuration: configuration(schedule: schedule))
+            settings.mainAlarmID = mainID
+        } catch {
+            return
+        }
+        await scheduleBackups(settings)
+    }
+
+    func disarm(_ settings: AlarmSettings) {
+        cancelAll(settings)
+    }
+
+    /// Queue the one-shot chain for the next occurrence. Stops early if the OS
+    /// alarm limit is reached — a shorter chain is still a chain.
+    private func scheduleBackups(_ settings: AlarmSettings) async {
+        guard let next = WormClock.nextOccurrence(
+            hour: settings.hour, minute: settings.minute,
+            weekdays: settings.weekdays, after: .now) else { return }
+
+        var ids: [UUID] = []
+        for k in 1...WormClock.backupCount {
+            let fireDate = next.addingTimeInterval(Double(k) * WormClock.spacing)
+            let id = UUID()
+            do {
+                _ = try await manager.schedule(id: id, configuration: configuration(schedule: .fixed(fireDate)))
+                ids.append(id)
+            } catch {
+                break
+            }
+        }
+        settings.backupAlarmIDs = ids
+    }
+
+    // MARK: Victory
+
+    /// The user photographed grass: silence everything, then queue the next
+    /// occurrence's chain while we have the chance.
+    func victory(_ settings: AlarmSettings) async {
+        settings.lastVictoryDate = .now
+        for id in settings.backupAlarmIDs {
+            try? manager.cancel(id: id)
+        }
+        settings.backupAlarmIDs = []
+        if let mainID = settings.mainAlarmID {
+            // Stops today's alert; the weekly alarm stays scheduled for next time.
+            try? manager.stop(id: mainID)
+        }
+        await scheduleBackups(settings)
+    }
+
+    // MARK: Reconciliation
+
+    /// Called whenever the app comes to the foreground. Prunes fired/stale
+    /// backups and keeps the chain topped up for the next occurrence — but never
+    /// touches an actively-ringing chain.
+    func reconcile(_ settings: AlarmSettings) async {
+        guard settings.isEnabled else { return }
+
+        let live = (try? manager.alarms) ?? []
+        let liveIDs = Set(live.map(\.id))
+
+        guard let mainID = settings.mainAlarmID, liveIDs.contains(mainID) else {
+            await rearm(settings)
+            return
+        }
+
+        let ringing = WormClock.isRinging(
+            hour: settings.hour, minute: settings.minute,
+            weekdays: settings.weekdays, isEnabled: settings.isEnabled,
+            lastVictoryDate: settings.lastVictoryDate, now: .now)
+        guard !ringing else { return }
+
+        // Outside the window: silence any stale alerting alarms and rebuild the chain.
+        for alarm in live where alarm.state == .alerting {
+            try? manager.stop(id: alarm.id)
+        }
+        for id in settings.backupAlarmIDs {
+            try? manager.cancel(id: id)
+        }
+        settings.backupAlarmIDs = []
+        await scheduleBackups(settings)
+    }
+
+    // MARK: Helpers
+
+    private func cancelAll(_ settings: AlarmSettings) {
+        for id in settings.allAlarmIDs {
+            try? manager.cancel(id: id)
+        }
+        settings.mainAlarmID = nil
+        settings.backupAlarmIDs = []
+    }
+
+    private func configuration(schedule: Alarm.Schedule) -> AlarmManager.AlarmConfiguration<WormMetadata> {
+        let alert = AlarmPresentation.Alert(
+            title: "Get up. Get the worm. 🪱",
+            stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill"),
+            secondaryButton: AlarmButton(text: "Show Grass", textColor: .green, systemImageName: "camera.fill"),
+            secondaryButtonBehavior: .custom)
+        let attributes = AlarmAttributes<WormMetadata>(
+            presentation: AlarmPresentation(alert: alert),
+            tintColor: WormTheme.ledRed)
+        return .alarm(
+            schedule: schedule,
+            attributes: attributes,
+            secondaryIntent: ShowGrassIntent(),
+            sound: .default)
+    }
+}
+
+extension Locale.Weekday {
+    /// Calendar weekday number (1 = Sunday … 7 = Saturday) to Locale.Weekday.
+    init?(calendarWeekday: Int) {
+        switch calendarWeekday {
+        case 1: self = .sunday
+        case 2: self = .monday
+        case 3: self = .tuesday
+        case 4: self = .wednesday
+        case 5: self = .thursday
+        case 6: self = .friday
+        case 7: self = .saturday
+        default: return nil
+        }
+    }
+}

@@ -2,9 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIBackgroundModes</key>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>GetTheWorm schedules wake-up alarms that keep ringing until you photograph real grass. That&apos;s the whole point.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The only way to silence your alarm is to take a live photo of grass. The camera is how you prove it.</string>
+	<key>UIAppFonts</key>
 	<array>
-		<string>remote-notification</string>
+		<string>DSEG7Classic-Bold.ttf</string>
+		<string>DSEG7Classic-Regular.ttf</string>
+		<string>DSEG14Classic-Regular.ttf</string>
 	</array>
 </dict>
 </plist>

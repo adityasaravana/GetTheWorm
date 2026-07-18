@@ -2,17 +2,15 @@
 //  GetTheWormApp.swift
 //  GetTheWorm
 //
-//  Created by Aditya Saravana on 7/17/26.
-//
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct GetTheWormApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            AlarmSettings.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

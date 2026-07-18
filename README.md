@@ -1,2 +1,2 @@
 # GetTheWorm
-A free, open-source clone of Erly, the alarm clock app.
+An open-source clone of Erly, the alarm clock app.

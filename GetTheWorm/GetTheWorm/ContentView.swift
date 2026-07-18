@@ -2,60 +2,52 @@
 //  ContentView.swift
 //  GetTheWorm
 //
-//  Created by Aditya Saravana on 7/17/26.
+//  Routing: clock radio by default, ringing screen while a wake-up window is
+//  active and undefeated, victory screen right after showing grass.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Environment(\.scenePhase) private var scenePhase
+    @Query private var allSettings: [AlarmSettings]
+
+    @State private var scheduler = AlarmScheduler()
+    @State private var showVictory = false
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        Group {
+            if let settings = allSettings.first {
+                TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                    let ringing = WormClock.isRinging(
+                        hour: settings.hour, minute: settings.minute,
+                        weekdays: settings.weekdays, isEnabled: settings.isEnabled,
+                        lastVictoryDate: settings.lastVictoryDate, now: timeline.date)
+                    if showVictory {
+                        VictoryView { showVictory = false }
+                    } else if ringing {
+                        RingingView(settings: settings, scheduler: scheduler) {
+                            showVictory = true
+                        }
+                    } else {
+                        ClockRadioView(settings: settings, scheduler: scheduler)
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            } else {
+                WormTheme.room.ignoresSafeArea()
             }
         }
+        .preferredColorScheme(.dark)
+        .task {
+            if allSettings.isEmpty {
+                modelContext.insert(AlarmSettings())
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, let settings = allSettings.first else { return }
+            Task { await scheduler.reconcile(settings) }
+        }
     }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
