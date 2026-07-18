@@ -86,12 +86,6 @@ struct ClockRadioView: View {
             let time = Self.displayTime(for: timeline.date)
             VStack(spacing: 10) {
                 HStack(alignment: .top) {
-                    HStack(spacing: 5) {
-                        IndicatorLED(on: settings.isEnabled)
-                        Text("ARMED")
-                            .font(.system(size: 7, weight: .bold, design: .rounded))
-                            .foregroundStyle(WormTheme.labelText.opacity(0.8))
-                    }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 6) {
                         LEDText(text: time.isPM ? "PM" : "AM", size: 10, color: WormTheme.ledRed, style: .fourteenSegment)
