@@ -98,9 +98,14 @@ struct LEDText: View {
 
 // MARK: - Plastic controls
 
-struct PlasticButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+/// Shared plastic-button surface (fill, bevel, press-down animation). Used by
+/// both the tap-only `PlasticButtonStyle` and the press-and-hold
+/// `HoldStepButton` so the two look identical.
+struct PlasticButtonSurface: ViewModifier {
+    var isPressed: Bool
+
+    func body(content: Content) -> some View {
+        content
             .font(.system(size: 11, weight: .heavy, design: .rounded))
             .kerning(1.2)
             .foregroundStyle(WormTheme.labelText)
@@ -122,12 +127,70 @@ struct PlasticButtonStyle: ButtonStyle {
                         lineWidth: 1)
             }
             .shadow(
-                color: .black.opacity(configuration.isPressed ? 0.2 : 0.55),
-                radius: configuration.isPressed ? 1 : 3,
-                y: configuration.isPressed ? 1 : 3)
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+                color: .black.opacity(isPressed ? 0.2 : 0.55),
+                radius: isPressed ? 1 : 3,
+                y: isPressed ? 1 : 3)
+            .offset(y: isPressed ? 2 : 0)
+            .animation(.easeOut(duration: 0.08), value: isPressed)
+    }
+}
+
+struct PlasticButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .modifier(PlasticButtonSurface(isPressed: configuration.isPressed))
             .sensoryFeedback(.impact(weight: .medium), trigger: configuration.isPressed)
+    }
+}
+
+/// A plastic button that steps once on tap, then repeats at a fixed fast
+/// cadence while held down — the way a bedside clock's HOUR/MIN buttons behave.
+/// Steady velocity, no acceleration.
+struct HoldStepButton: View {
+    let title: String
+    let step: () -> Void
+
+    @State private var isPressed = false
+    @State private var repeatTask: Task<Void, Never>?
+
+    /// Pause after the first step before the held repeat kicks in, then the
+    /// gap between each rapid step.
+    private static let holdDelay: Duration = .milliseconds(350)
+    private static let stepInterval: Duration = .milliseconds(70)
+
+    var body: some View {
+        Text(title)
+            .modifier(PlasticButtonSurface(isPressed: isPressed))
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !isPressed else { return }
+                        isPressed = true
+                        step()  // first step lands immediately, like a tap
+                        startRepeating()
+                    }
+                    .onEnded { _ in stop() }
+            )
+            .sensoryFeedback(.impact(weight: .medium), trigger: isPressed)
+            .onDisappear { stop() }
+    }
+
+    private func startRepeating() {
+        repeatTask?.cancel()
+        repeatTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.holdDelay)
+            while !Task.isCancelled {
+                step()
+                try? await Task.sleep(for: Self.stepInterval)
+            }
+        }
+    }
+
+    private func stop() {
+        repeatTask?.cancel()
+        repeatTask = nil
+        isPressed = false
     }
 }
 

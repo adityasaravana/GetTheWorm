@@ -141,18 +141,16 @@ struct ClockRadioView: View {
                     }
                     .opacity(settings.isEnabled ? 1 : 0.35)
                     HStack(spacing: 8) {
-                        Button("HOUR") {
+                        HoldStepButton(title: "HOUR") {
                             settings.hour = (settings.hour + 1) % 24
                         }
-                        Button("MIN") {
+                        HoldStepButton(title: "MIN") {
                             settings.minute = (settings.minute + 1) % 60
                         }
                         Text("SET")
                             .font(.system(size: 8, weight: .bold, design: .rounded))
                             .embossedLabel()
                     }
-                    .buttonStyle(PlasticButtonStyle())
-                    .buttonRepeatBehavior(.enabled)
                 }
                 Spacer()
                 RockerSwitch(isOn: $settings.isEnabled)
