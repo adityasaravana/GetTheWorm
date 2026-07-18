@@ -13,7 +13,7 @@ An open-source alarm clock for iOS inspired by [erly](https://apps.apple.com/us/
 2. The app queues 30ish alarms spaced a minute apart at the time you set using AlarmKit (so they ring through Silent Mode and Focuses, and force quit doesn't kill them since they're scheduled at the OS level).
 3. Dismissing an alarm runs a background intent that schedules a new alarm in 10 seconds. 
 4. To stop the alarms, you have to open the app and take a photo of grass. Pictures are classified on-device with Vision (nothing leaves your phone).
-5. Once you take a good photo, the remaining alarms are cancelled and tomorrow's alarms get queued.
+5. Once you take a good photo, the remaining alarms are canceled and tomorrow's alarms get queued.
 
 ## Requirements
 
