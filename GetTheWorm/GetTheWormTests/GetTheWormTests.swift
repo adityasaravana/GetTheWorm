@@ -171,7 +171,7 @@ struct GrassCheckTests {
         ("fixture-grass-lawn", true),
         ("fixture-grass-blades", true),
         ("fixture-grass-field", true),
-        ("fixture-carpet", false),
+        ("fixture-clams", false),
         ("fixture-bedroom", false),
         ("fixture-cat", false),
     ])

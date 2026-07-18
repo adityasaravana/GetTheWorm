@@ -20,7 +20,7 @@ struct ClockRadioView: View {
 
     var body: some View {
         ZStack {
-            WormTheme.room.ignoresSafeArea()
+            WoodGrainBackground()
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
                 clockCase

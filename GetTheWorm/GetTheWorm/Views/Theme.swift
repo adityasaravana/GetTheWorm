@@ -268,6 +268,79 @@ struct SpeakerGrille: View {
     }
 }
 
+// MARK: - Wood grain
+
+/// The bedside table the radio sits on: procedural dark walnut veneer.
+/// Seeded RNG so the grain is identical every render.
+struct WoodGrainBackground: View {
+    var body: some View {
+        Canvas { context, size in
+            let top = Color(red: 0.26, green: 0.17, blue: 0.10)
+            let bottom = Color(red: 0.15, green: 0.09, blue: 0.05)
+            context.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .linearGradient(
+                    Gradient(colors: [top, bottom]),
+                    startPoint: .zero,
+                    endPoint: CGPoint(x: 0, y: size.height)))
+
+            var rng = SplitMix64(seed: 0x60D5_EED)
+            for _ in 0..<170 {
+                let y = CGFloat(rng.next01()) * size.height
+                let isHighlight = rng.next01() < 0.22
+                let color = isHighlight
+                    ? Color(red: 0.42, green: 0.29, blue: 0.16)
+                    : Color(red: 0.07, green: 0.04, blue: 0.02)
+                let alpha = 0.05 + rng.next01() * 0.13
+                let width = 0.5 + CGFloat(rng.next01()) * 1.9
+
+                var path = Path()
+                var x: CGFloat = -20
+                var currentY = y
+                path.move(to: CGPoint(x: x, y: currentY))
+                while x < size.width + 20 {
+                    let step = 50 + CGFloat(rng.next01()) * 90
+                    let nextY = y + CGFloat(rng.next01() - 0.5) * 9
+                    path.addQuadCurve(
+                        to: CGPoint(x: x + step, y: nextY),
+                        control: CGPoint(x: x + step / 2, y: currentY + CGFloat(rng.next01() - 0.5) * 7))
+                    x += step
+                    currentY = nextY
+                }
+                context.stroke(path, with: .color(color.opacity(alpha)), lineWidth: width)
+            }
+
+            // soft vignette so the case stays the brightest thing on screen
+            context.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .radialGradient(
+                    Gradient(colors: [.clear, .black.opacity(0.55)]),
+                    center: CGPoint(x: size.width / 2, y: size.height * 0.45),
+                    startRadius: size.width * 0.35,
+                    endRadius: size.height * 0.75))
+        }
+        .ignoresSafeArea()
+    }
+}
+
+/// Tiny deterministic RNG (SplitMix64) for stable procedural textures.
+struct SplitMix64 {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
+    }
+
+    mutating func next01() -> Double {
+        Double(next() >> 11) * (1.0 / 9_007_199_254_740_992.0)
+    }
+}
+
 // MARK: - Helpers
 
 extension View {

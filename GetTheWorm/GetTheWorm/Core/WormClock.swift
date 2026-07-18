@@ -9,10 +9,15 @@ import Foundation
 
 enum WormClock {
     /// One-shot backup alarms scheduled after the main alarm, one per minute.
-    /// The OS may cap us lower (AlarmError.maximumLimitReached); we take what we can get.
+    /// This is the safety backbone for people who ignore the alarm entirely.
+    /// The OS may cap us lower (AlarmError.maximumLimitReached); we take what
+    /// we can get.
     static let backupCount = 29
-    /// Seconds between chain alarms.
+    /// Seconds between backbone chain alarms.
     static let spacing: TimeInterval = 60
+    /// How soon a new alarm fires after someone presses Stop. Dismissal is
+    /// punished fast; the backbone only exists for people who never press it.
+    static let respawnDelay: TimeInterval = 10
     /// The chain covers this window; ringing state lasts exactly as long.
     static let windowDuration: TimeInterval = 30 * 60
 

@@ -19,6 +19,9 @@ final class AlarmSettings {
     var mainAlarmID: UUID?
     /// One-shot backup alarms forming the relentless chain for the next occurrence.
     var backupAlarmIDs: [UUID]
+    /// The occurrence the current backup chain was built for. Lets reconcile
+    /// skip an expensive rebuild when the queued chain is still the right one.
+    var chainOccurrence: Date?
     /// Last time the user successfully photographed grass.
     var lastVictoryDate: Date?
     /// When the user last changed any alarm setting. Occurrences that began
@@ -34,6 +37,7 @@ final class AlarmSettings {
         self.isEnabled = isEnabled
         self.mainAlarmID = nil
         self.backupAlarmIDs = []
+        self.chainOccurrence = nil
         self.lastVictoryDate = nil
         self.armedAt = .now
     }
