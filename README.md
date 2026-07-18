@@ -1,6 +1,6 @@
-# GetTheWorm 🪱
+# GetTheWorm
 
-An open-source alarm clock for iOS inspired by [erly](https://apps.apple.com/us/app/erly-wake-up-early/id6751428380) that doesn't stop ringing until you go outside and take a photo of real grass.
+An open-source alarm clock for iOS inspired by [erly](https://apps.apple.com/us/app/erly-wake-up-early/id6751428380) that doesn't stop ringing until you go outside and take a photo of real grass!
 
 <p>
   <img src="docs/clock.png" width="300" alt="The clock radio home screen">
@@ -18,13 +18,13 @@ An open-source alarm clock for iOS inspired by [erly](https://apps.apple.com/us/
 ## Requirements
 
 - iOS 26 or later (AlarmKit)
-- Xcode 26 to build
-- A real iPhone for the full experience (the camera and the Vision classifier both need real hardware)
+- Xcode 26
+- An iPhone (the camera and the Vision classifier both need hardware)
   - In Simulator, the ringing screen shows a picker of test photos, and alarms don't automatically respawn when you dismiss them.
 
 ## Testing
 
-There are unit tests for the alarm date math (including DST and window edge cases), display formatting, and the grass classifier on the bundled fixture photos.
+There are unit tests for the alarm date math, display formatting, and the grass classifier on the test photos.
 
 ## Credits
 
