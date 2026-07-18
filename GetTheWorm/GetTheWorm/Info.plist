@@ -4,6 +4,8 @@
 <dict>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>GetTheWorm schedules wake-up alarms that keep ringing until you photograph real grass. That's the whole point.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The only way to silence your alarm is to take a live photo of grass. The camera is how you prove it.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DSEG7Classic-Bold.ttf</string>
