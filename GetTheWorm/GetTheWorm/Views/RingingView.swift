@@ -20,8 +20,7 @@ struct RingingView: View {
     @State private var lastObservations: [(label: String, confidence: Float)] = []
 
     private static let failMessages = [
-        "NOT GRASS", "STILL NOT GRASS", "NICE TRY", "GO OUTSIDE",
-        "THE WORM AWAITS", "GRASS. REAL GRASS.",
+        "NOT GRASS", "STILL NOT GRASS", "NICE TRY", "GO OUTSIDE"
     ]
 
     var body: some View {
