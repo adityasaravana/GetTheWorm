@@ -1,6 +1,6 @@
 # GetTheWorm 🪱
 
-An open-source alarm clock for iOS inspired by [erly](https://erly.app). It won't stop ringing until you go outside and take a photo of real grass.
+An open-source alarm clock for iOS inspired by [erly](https://apps.apple.com/us/app/erly-wake-up-early/id6751428380). It won't stop ringing until you go outside and take a photo of real grass.
 
 <p>
   <img src="docs/clock.png" width="300" alt="The clock radio home screen">
@@ -37,7 +37,7 @@ Unit tests cover the alarm date math (including DST and window edge cases), disp
 
 ## Credits
 
-- Inspired by [erly](https://erly.app). Not affiliated, just fans of being forced to touch grass.
+- Inspired by [erly](https://apps.apple.com/us/app/erly-wake-up-early/id6751428380).
 - 7-segment and 14-segment fonts: [DSEG](https://github.com/keshikan/DSEG) by keshikan, SIL Open Font License.
 - Test photos from Wikimedia Commons, see `GetTheWorm/GetTheWorm/Resources/TestPhotos/ATTRIBUTION.md`.
 
