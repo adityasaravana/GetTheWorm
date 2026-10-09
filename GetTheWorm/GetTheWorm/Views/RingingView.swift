@@ -20,7 +20,7 @@ struct RingingView: View {
     @State private var lastObservations: [(label: String, confidence: Float)] = []
 
     private static let failMessages = [
-        "NOT GRASS", "STILL NOT GRASS", "NICE TRY", "GO OUTSIDE"
+        "NOT GRASS", "STILL NOT GRASS", "GO OUTSIDE"
     ]
 
     var body: some View {
@@ -53,7 +53,7 @@ struct RingingView: View {
                 LEDText(text: "WAKE UP", size: 40, style: .fourteenSegment)
                     .opacity(blinkOn ? 1 : 0.12)
                 LEDText(
-                    text: "PHOTOGRAPH GRASS TO SILENCE",
+                    text: "TAKE A PHOTO OF GRASS TO TURN OFF YOUR ALARM",
                     size: 11, color: WormTheme.ledAmber, style: .fourteenSegment)
             }
         }
@@ -72,7 +72,7 @@ struct RingingView: View {
             case .denied:
                 cameraProblem(
                     "CAMERA ACCESS DENIED",
-                    detail: "The alarm will keep ringing. Enable the camera in Settings.",
+                    detail: "The alarm will keep ringing. Enable the camera in Settings!",
                     showsSettingsButton: true)
             case .unavailable:
                 cameraProblem("NO CAMERA FOUND", detail: "This device has no usable camera.")
@@ -165,7 +165,7 @@ struct RingingView: View {
 
     private func verify(_ image: UIImage, simulatorGroundTruth: Bool? = nil) async {
         guard let cgImage = image.cgImage else {
-            failMessage = "BAD PHOTO. TRY AGAIN."
+            failMessage = "BAD PHOTO, TRY AGAIN"
             return
         }
         isVerifying = true
