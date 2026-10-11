@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import SwiftData
 import Testing
 import UIKit
 import Vision
@@ -108,6 +109,176 @@ struct WormClockTests {
         #expect(!ringing(now: date(13, 7, 10), armedAt: date(13, 7, 9)))
         // But an occurrence that begins after arming rings normally.
         #expect(ringing(now: date(13, 7, 10), armedAt: date(13, 6, 0)))
+    }
+}
+
+// MARK: - WakeLog
+
+struct WakeLogTests {
+    let utc: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
+
+    /// 2026-07-13 is a Monday.
+    func date(_ day: Int, _ hour: Int = 0, _ minute: Int = 0) -> Date {
+        utc.date(from: DateComponents(year: 2026, month: 7, day: day, hour: hour, minute: minute))!
+    }
+
+    let weekdaysOnly = [2, 3, 4, 5, 6]
+
+    // MARK: Which day a victory belongs to
+
+    @Test func victoryFilesUnderOccurrenceDay() {
+        let day = WakeLog.day(forVictoryAt: date(13, 7, 12), hour: 7, minute: 0, weekdays: [2], calendar: utc)
+        #expect(day == date(13))
+    }
+
+    @Test func lateNightAlarmDefeatedAfterMidnightKeepsEveningDay() {
+        // Alarm 11:50 PM Monday, grass shown 12:04 AM Tuesday → Monday.
+        let day = WakeLog.day(forVictoryAt: date(14, 0, 4), hour: 23, minute: 50, weekdays: [2], calendar: utc)
+        #expect(day == date(13))
+    }
+
+    @Test func noArmedWeekdaysFallsBackToToday() {
+        let day = WakeLog.day(forVictoryAt: date(13, 7, 12), hour: 7, minute: 0, weekdays: [], calendar: utc)
+        #expect(day == date(13))
+    }
+
+    // MARK: Current streak
+
+    @Test func emptyLogIsZero() {
+        #expect(WakeLog.currentStreak(outcomes: [:], weekdays: weekdaysOnly, today: date(15), calendar: utc) == 0)
+    }
+
+    @Test func countsConsecutiveArmedDays() {
+        let outcomes = [date(13): true, date(14): true, date(15): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(15), calendar: utc) == 3)
+    }
+
+    @Test func weekendDoesNotBreakStreak() {
+        // Thu 9, Fri 10, (Sat 11, Sun 12 off), Mon 13.
+        let outcomes = [date(9): true, date(10): true, date(13): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(13), calendar: utc) == 3)
+    }
+
+    @Test func missingArmedDayBreaksStreak() {
+        // Tuesday 14 has no record.
+        let outcomes = [date(13): true, date(15): true, date(16): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(16), calendar: utc) == 2)
+    }
+
+    @Test func explicitMissBreaksStreak() {
+        let outcomes = [date(13): true, date(14): false, date(15): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(15), calendar: utc) == 1)
+    }
+
+    @Test func pendingTodayDoesNotBreakStreak() {
+        // It's Wednesday morning before the alarm; Mon + Tue still count.
+        let outcomes = [date(13): true, date(14): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(15, 6), calendar: utc) == 2)
+    }
+
+    @Test func explicitMissTodayBreaksStreak() {
+        let outcomes = [date(13): true, date(14): true, date(15): false]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(15), calendar: utc) == 0)
+    }
+
+    @Test func wakeUpsOnUnarmedDaysDoNotCount() {
+        // Showed grass on Saturday for fun; only weekdays are armed.
+        let outcomes = [date(10): true, date(11): true, date(13): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(13), calendar: utc) == 2)
+    }
+
+    @Test func noWeekdaysArmedIsZero() {
+        let outcomes = [date(13): true]
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: [], today: date(13), calendar: utc) == 0)
+    }
+
+    // MARK: Longest streak
+
+    @Test func longestStreakSpansGaps() {
+        // Run of 3 (Mon–Wed 6–8), miss Thu 9, then run of 2 (Fri 10, Mon 13).
+        let outcomes = [
+            date(6): true, date(7): true, date(8): true,
+            date(9): false,
+            date(10): true, date(13): true,
+        ]
+        #expect(WakeLog.longestStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(13), calendar: utc) == 3)
+        #expect(WakeLog.currentStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(13), calendar: utc) == 2)
+    }
+
+    @Test func longestStreakIncludesCurrentRun() {
+        let outcomes = [date(13): true, date(14): true, date(15): true, date(16): true]
+        #expect(WakeLog.longestStreak(outcomes: outcomes, weekdays: weekdaysOnly, today: date(16), calendar: utc) == 4)
+    }
+
+    // MARK: Persistence
+
+    @MainActor
+    private func makeContext() throws -> ModelContext {
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: AlarmSettings.self, WakeDay.self, configurations: configuration)
+        return ModelContext(container)
+    }
+
+    @MainActor
+    @Test func recordVictoryInsertsOneRowPerDay() throws {
+        let context = try makeContext()
+        let settings = AlarmSettings(hour: 7, minute: 0, weekdays: [2])
+        context.insert(settings)
+
+        WakeLog.recordVictory(at: date(13, 7, 5), settings: settings, in: context, calendar: utc)
+        WakeLog.recordVictory(at: date(13, 7, 20), settings: settings, in: context, calendar: utc)
+
+        let rows = try context.fetch(FetchDescriptor<WakeDay>())
+        #expect(rows.count == 1)
+        #expect(rows.first?.day == date(13))
+        #expect(rows.first?.wokeUp == true)
+        #expect(rows.first?.source == .grass)
+        #expect(rows.first?.recordedAt == date(13, 7, 20))
+    }
+
+    @MainActor
+    @Test func manualEditOverridesGrassRecord() throws {
+        let context = try makeContext()
+        let settings = AlarmSettings(hour: 7, minute: 0, weekdays: [2])
+        context.insert(settings)
+
+        WakeLog.recordVictory(at: date(13, 7, 5), settings: settings, in: context, calendar: utc)
+        WakeLog.set(day: date(13), wokeUp: false, source: .manual, in: context)
+
+        let record = try #require(WakeLog.record(for: date(13), in: context))
+        #expect(record.wokeUp == false)
+        #expect(record.source == .manual)
+        #expect(WakeLog.outcomes(in: context) == [date(13): false])
+    }
+
+    @MainActor
+    @Test func backfillSeedsFromLastVictoryOnce() throws {
+        let context = try makeContext()
+        let settings = AlarmSettings(hour: 7, minute: 0, weekdays: [2])
+        settings.lastVictoryDate = date(13, 7, 5)
+        context.insert(settings)
+
+        WakeLog.backfillIfNeeded(settings: settings, in: context, calendar: utc)
+        WakeLog.backfillIfNeeded(settings: settings, in: context, calendar: utc)
+
+        let rows = try context.fetch(FetchDescriptor<WakeDay>())
+        #expect(rows.count == 1)
+        #expect(rows.first?.day == date(13))
+    }
+
+    @MainActor
+    @Test func backfillDoesNothingWithoutVictory() throws {
+        let context = try makeContext()
+        let settings = AlarmSettings()
+        context.insert(settings)
+
+        WakeLog.backfillIfNeeded(settings: settings, in: context, calendar: utc)
+
+        #expect(try context.fetchCount(FetchDescriptor<WakeDay>()) == 0)
     }
 }
 

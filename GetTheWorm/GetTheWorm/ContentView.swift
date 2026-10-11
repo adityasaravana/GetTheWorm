@@ -42,7 +42,9 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .task {
-            if allSettings.isEmpty {
+            if let settings = allSettings.first {
+                WakeLog.backfillIfNeeded(settings: settings, in: modelContext)
+            } else {
                 modelContext.insert(AlarmSettings())
             }
         }
