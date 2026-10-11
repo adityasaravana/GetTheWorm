@@ -19,9 +19,14 @@ final class CameraController: NSObject, AVCapturePhotoCaptureDelegate {
     }
 
     var status: Status = .idle
+    /// True when the back camera's torch is lighting the preview. Pre-dawn
+    /// lawns are black on screen without it.
+    private(set) var isTorchOn = false
+    var hasTorch: Bool { device?.hasTorch ?? false }
     let session = AVCaptureSession()
 
     private let photoOutput = AVCapturePhotoOutput()
+    private var device: AVCaptureDevice?
     private var isConfigured = false
     private var captureContinuation: CheckedContinuation<UIImage?, Never>?
 
@@ -46,6 +51,7 @@ final class CameraController: NSObject, AVCapturePhotoCaptureDelegate {
     }
 
     func stop() {
+        setTorch(on: false)
         let session = session
         Task.detached {
             session.stopRunning()
@@ -53,11 +59,34 @@ final class CameraController: NSObject, AVCapturePhotoCaptureDelegate {
         status = .idle
     }
 
+    func toggleTorch() {
+        setTorch(on: !isTorchOn)
+    }
+
+    private func setTorch(on: Bool) {
+        guard let device, device.hasTorch, device.isTorchAvailable || !on else { return }
+        do {
+            try device.lockForConfiguration()
+            device.torchMode = on ? .on : .off
+            device.unlockForConfiguration()
+            isTorchOn = on
+        } catch {
+            isTorchOn = false
+        }
+    }
+
     func capture() async -> UIImage? {
         guard status == .running else { return nil }
+        let settings = AVCapturePhotoSettings()
+        // Force the flash when the user has lit the torch (they're clearly in
+        // the dark); otherwise let the camera decide.
+        let wantedFlash: AVCaptureDevice.FlashMode = isTorchOn ? .on : .auto
+        if photoOutput.supportedFlashModes.contains(wantedFlash) {
+            settings.flashMode = wantedFlash
+        }
         return await withCheckedContinuation { continuation in
             captureContinuation = continuation
-            photoOutput.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
+            photoOutput.capturePhoto(with: settings, delegate: self)
         }
     }
 
@@ -73,6 +102,7 @@ final class CameraController: NSObject, AVCapturePhotoCaptureDelegate {
         else { return false }
         session.addInput(input)
         session.addOutput(photoOutput)
+        self.device = device
         return true
     }
 
@@ -85,6 +115,11 @@ final class CameraController: NSObject, AVCapturePhotoCaptureDelegate {
     ) {
         let image = photo.fileDataRepresentation().flatMap(UIImage.init(data:))
         DispatchQueue.main.async {
+            // Firing the flash switches the torch off. Re-light it so the
+            // preview stays visible for a retry after a failed verdict.
+            if self.isTorchOn {
+                self.setTorch(on: true)
+            }
             self.captureContinuation?.resume(returning: image)
             self.captureContinuation = nil
         }

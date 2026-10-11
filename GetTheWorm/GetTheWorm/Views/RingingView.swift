@@ -69,6 +69,11 @@ struct RingingView: View {
             switch camera.status {
             case .running, .idle:
                 CameraPreview(session: camera.session)
+                    .overlay(alignment: .topTrailing) {
+                        if camera.status == .running && camera.hasTorch {
+                            torchButton
+                        }
+                    }
             case .denied:
                 cameraProblem(
                     "CAMERA ACCESS DENIED",
@@ -91,6 +96,21 @@ struct RingingView: View {
                     lineWidth: 5)
         }
         .shadow(color: .black.opacity(0.7), radius: 16, y: 8)
+    }
+
+    /// Lights the scene before sunrise so the preview (and the photo) isn't black.
+    private var torchButton: some View {
+        Button {
+            camera.toggleTorch()
+        } label: {
+            Image(systemName: camera.isTorchOn ? "bolt.fill" : "bolt.slash.fill")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(camera.isTorchOn ? WormTheme.ledAmber : .white)
+                .padding(10)
+                .background(.black.opacity(0.55), in: Circle())
+        }
+        .padding(12)
+        .accessibilityLabel(camera.isTorchOn ? "Turn flash off" : "Turn flash on")
     }
 
     private func cameraProblem(_ title: String, detail: String, showsSettingsButton: Bool = false) -> some View {
