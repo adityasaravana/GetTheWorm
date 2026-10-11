@@ -4,7 +4,7 @@
 //
 //  A chrome hand tally counter sitting on the nightstand, clicking up one
 //  notch per morning you beat the alarm. Tap the plunger to click it by hand,
-//  hold it to spin, and hold the little side knob to zero it.
+//  hold it to spin, and hold the tiny button set into the dome to zero it.
 //
 
 import SwiftUI
@@ -41,8 +41,10 @@ struct TallyCounter: View {
             fingerRing
                 .offset(x: -diameter * 0.56, y: diameter * 0.10)
             chromeBody
-            resetKnob
-                .offset(x: diameter * 0.53, y: -diameter * 0.04)
+            // Below the plunger in z-order so the plunger wins where their
+            // hit areas touch.
+            resetButton
+                .offset(x: -diameter * 0.18, y: -diameter * 0.30)
             plunger
                 .offset(y: -diameter * 0.50)
             VStack(spacing: 7) {
@@ -112,17 +114,6 @@ struct TallyCounter: View {
             .overlay {
                 Circle()
                     .strokeBorder(.black.opacity(0.6), lineWidth: 0.8)
-            }
-            .overlay {
-                // the little rivet near the top
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.95), Color(white: 0.45)],
-                            startPoint: .top, endPoint: .bottom))
-                    .frame(width: 5, height: 5)
-                    .overlay { Circle().strokeBorder(.black.opacity(0.5), lineWidth: 0.5) }
-                    .offset(x: -diameter * 0.18, y: -diameter * 0.30)
             }
     }
 
@@ -197,53 +188,43 @@ struct TallyCounter: View {
         .holdToRepeat(isPressed: $plungerPressed, step: click)
     }
 
-    // MARK: Reset knob
+    // MARK: Reset button
 
-    /// The small knurled knob on the side. Hold it to zero the drums.
-    private var resetKnob: some View {
-        let width = diameter * 0.14
-        let height = diameter * 0.17
-        return RoundedRectangle(cornerRadius: 3)
-            .fill(
-                LinearGradient(
-                    colors: [Color(white: 0.34), Color(white: 0.10), Color(white: 0.26)],
-                    startPoint: .top, endPoint: .bottom))
-            .overlay {
-                // knurling runs the other way on a side-mounted knob
-                VStack(spacing: 2) {
-                    ForEach(0..<6, id: \.self) { _ in
-                        Rectangle()
-                            .fill(.black.opacity(0.55))
-                            .frame(height: 1)
-                    }
+    /// The tiny chrome push button set into the dome near the top. Hold it
+    /// to zero the drums.
+    private var resetButton: some View {
+        ZStack {
+            // countersunk recess
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.black.opacity(0.45), .white.opacity(0.35)],
+                        startPoint: .top, endPoint: .bottom))
+                .frame(width: 12, height: 12)
+            // the button itself
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color(white: 0.97), Color(white: 0.50)],
+                        startPoint: .top, endPoint: .bottom))
+                .overlay { Circle().strokeBorder(.black.opacity(0.55), lineWidth: 0.6) }
+                .overlay {
+                    Circle().fill(.black.opacity(0.3)).frame(width: 2.5, height: 2.5)
                 }
-                .padding(.horizontal, 2)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(.black.opacity(0.8), lineWidth: 0.8)
-            }
-            .overlay(alignment: .leading) {
-                // chrome collar where it enters the body
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.95), Color(white: 0.5)],
-                            startPoint: .top, endPoint: .bottom))
-                    .frame(width: 2.5)
-            }
-            .frame(width: width, height: height)
-            .shadow(color: .black.opacity(0.6), radius: 2, y: 2)
-            // squeezes toward the body while held
-            .scaleEffect(x: resetPressed ? 0.75 : 1, anchor: .leading)
-            .animation(.easeOut(duration: 0.1), value: resetPressed)
-            .padding(10)
-            .contentShape(Rectangle())
-            .onLongPressGesture(minimumDuration: Self.resetHoldDuration) {
-                reset()
-            } onPressingChanged: { pressing in
-                resetPressed = pressing
-            }
+                .frame(width: 8, height: 8)
+                .shadow(color: .black.opacity(0.5), radius: resetPressed ? 0 : 1, y: resetPressed ? 0 : 1)
+                // sinks into the recess while held
+                .scaleEffect(resetPressed ? 0.8 : 1)
+                .animation(.easeOut(duration: 0.1), value: resetPressed)
+        }
+        // hit area well beyond the 8pt button
+        .padding(10)
+        .contentShape(Circle())
+        .onLongPressGesture(minimumDuration: Self.resetHoldDuration) {
+            reset()
+        } onPressingChanged: { pressing in
+            resetPressed = pressing
+        }
     }
 
     // MARK: Digit window
