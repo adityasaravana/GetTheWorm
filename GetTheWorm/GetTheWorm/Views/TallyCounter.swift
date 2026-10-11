@@ -11,6 +11,9 @@ import SwiftUI
 struct TallyCounter: View {
     /// The number on the drums. Clamped to four digits like the real thing.
     var count: Int
+    /// How crooked it's lying on the table. Applied before the drop shadow so
+    /// the shadow still falls straight down.
+    var tilt: Angle = .zero
 
     private let diameter: CGFloat = 118
     private static let digitCount = 4
@@ -39,6 +42,7 @@ struct TallyCounter: View {
             .offset(y: diameter * 0.20)
         }
         .frame(width: diameter, height: diameter)
+        .rotationEffect(tilt)
         .shadow(color: .black.opacity(0.75), radius: 18, y: 12)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Wake-up streak")
@@ -220,7 +224,7 @@ private struct DrumDigit: View {
         WoodGrainBackground()
         VStack(spacing: 40) {
             TallyCounter(count: 0)
-            TallyCounter(count: 27)
+            TallyCounter(count: 27, tilt: .degrees(16))
             TallyCounter(count: 1234)
         }
     }

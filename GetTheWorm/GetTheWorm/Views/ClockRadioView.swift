@@ -73,7 +73,7 @@ struct ClockRadioView: View {
     private var tallyShelf: some View {
         HStack {
             Spacer()
-            TallyCounter(count: streak)
+            TallyCounter(count: streak, tilt: .degrees(16))
                 .padding(.trailing, 18)
         }
         .padding(.bottom, 22)
