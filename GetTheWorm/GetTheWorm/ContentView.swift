@@ -42,13 +42,34 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .task {
+            CloudBackup.start()
             if allSettings.isEmpty {
-                modelContext.insert(AlarmSettings())
+                // Fresh install: start from whatever iCloud already has cached,
+                // falling back to defaults.
+                let settings = AlarmSettings()
+                CloudBackup.restore(into: settings)
+                modelContext.insert(settings)
+                await scheduler.reconcile(settings)
+            }
+        }
+        .task {
+            // iCloud values that land after launch — typically the initial sync
+            // right after a reinstall. Only taken while this install has
+            // nothing of its own yet.
+            for await _ in CloudBackup.externalChanges {
+                guard !CloudBackup.hasSeeded, let settings = allSettings.first else { continue }
+                if CloudBackup.restore(into: settings) {
+                    await scheduler.reconcile(settings)
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active, let settings = allSettings.first else { return }
-            Task { await scheduler.reconcile(settings) }
+            guard let settings = allSettings.first else { return }
+            if phase == .active {
+                Task { await scheduler.reconcile(settings) }
+            } else {
+                CloudBackup.save(settings)
+            }
         }
     }
 }

@@ -172,6 +172,8 @@ final class AlarmScheduler {
     func victory(_ settings: AlarmSettings) async {
         settings.lastVictoryDate = .now
         settings.streak = min(settings.streak + 1, TallyCounter.maximum)
+        // A won morning is the one thing worth backing up right away.
+        CloudBackup.save(settings)
         for id in settings.backupAlarmIDs {
             try? manager.cancel(id: id)
         }
