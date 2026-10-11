@@ -13,7 +13,6 @@ enum WormStore {
     static let container: ModelContainer = {
         let schema = Schema([
             AlarmSettings.self,
-            WakeDay.self,
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {

@@ -12,7 +12,6 @@ struct ClockRadioView: View {
     @Bindable var settings: AlarmSettings
     var scheduler: AlarmScheduler
 
-    @Query private var wakeDays: [WakeDay]
     @State private var rearmTask: Task<Void, Never>?
 
     private static let weekdayLabels: [(number: Int, letter: String)] = [
@@ -73,17 +72,10 @@ struct ClockRadioView: View {
     private var tallyShelf: some View {
         HStack {
             Spacer()
-            TallyCounter(count: streak, tilt: .degrees(16))
+            TallyCounter(count: $settings.streak, tilt: .degrees(16))
                 .padding(.trailing, 18)
         }
         .padding(.bottom, 22)
-    }
-
-    private var streak: Int {
-        let outcomes = Dictionary(
-            wakeDays.map { ($0.day, $0.wokeUp) },
-            uniquingKeysWith: { _, last in last })
-        return WakeLog.currentStreak(outcomes: outcomes, weekdays: settings.weekdays, today: .now)
     }
 
     private var brandPlate: some View {

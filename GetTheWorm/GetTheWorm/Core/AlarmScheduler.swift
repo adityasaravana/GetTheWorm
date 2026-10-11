@@ -170,11 +170,8 @@ final class AlarmScheduler {
     /// The user photographed grass: silence everything, then queue the next
     /// occurrence's chain while we have the chance.
     func victory(_ settings: AlarmSettings) async {
-        let now = Date.now
-        settings.lastVictoryDate = now
-        if let context = settings.modelContext {
-            WakeLog.recordVictory(at: now, settings: settings, in: context)
-        }
+        settings.lastVictoryDate = .now
+        settings.streak = min(settings.streak + 1, TallyCounter.maximum)
         for id in settings.backupAlarmIDs {
             try? manager.cancel(id: id)
         }

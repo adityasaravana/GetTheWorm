@@ -3,23 +3,35 @@
 //  GetTheWorm
 //
 //  A chrome hand tally counter sitting on the nightstand, clicking up one
-//  notch per morning you beat the alarm.
+//  notch per morning you beat the alarm. Tap the plunger to click it by hand,
+//  hold it to spin, and hold the little side knob to zero it.
 //
 
 import SwiftUI
 
 struct TallyCounter: View {
-    /// The number on the drums. Clamped to four digits like the real thing.
-    var count: Int
+    /// The number on the drums.
+    @Binding var count: Int
     /// How crooked it's lying on the table. Applied before the drop shadow so
     /// the shadow still falls straight down.
     var tilt: Angle = .zero
 
+    /// Four drums, like the real thing.
+    static let maximum = 9999
+
+    @State private var plungerPressed = false
+    @State private var resetPressed = false
+    @State private var resetCount = 0
+
     private let diameter: CGFloat = 118
     private static let digitCount = 4
 
+    /// Hold the reset knob this long before it zeroes. A streak is worth too
+    /// much to lose to a stray tap.
+    private static let resetHoldDuration: TimeInterval = 0.8
+
     private var digits: [Int] {
-        let clamped = min(max(count, 0), 9999)
+        let clamped = min(max(count, 0), Self.maximum)
         let text = String(format: "%0\(Self.digitCount)d", clamped)
         return text.compactMap(\.wholeNumberValue)
     }
@@ -30,6 +42,8 @@ struct TallyCounter: View {
                 .offset(x: -diameter * 0.56, y: diameter * 0.10)
             chromeBody
             resetKnob
+                .offset(x: diameter * 0.53, y: -diameter * 0.04)
+            plunger
                 .offset(y: -diameter * 0.50)
             VStack(spacing: 7) {
                 Text("STREAK")
@@ -44,9 +58,32 @@ struct TallyCounter: View {
         .frame(width: diameter, height: diameter)
         .rotationEffect(tilt)
         .shadow(color: .black.opacity(0.75), radius: 18, y: 12)
+        .sensoryFeedback(.impact(weight: .light), trigger: count)
+        .sensoryFeedback(.warning, trigger: resetCount)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Wake-up streak")
         .accessibilityValue("\(count) days")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: click()
+            case .decrement: count = max(count - 1, 0)
+            @unknown default: break
+            }
+        }
+        .accessibilityAction(named: "Reset") { reset() }
+    }
+
+    // MARK: Actions
+
+    private func click() {
+        guard count < Self.maximum else { return }
+        count += 1
+    }
+
+    private func reset() {
+        guard count != 0 else { return }
+        count = 0
+        resetCount += 1
     }
 
     // MARK: Chrome body
@@ -105,9 +142,9 @@ struct TallyCounter: View {
         center: .center,
         angle: .degrees(-40))
 
-    // MARK: Reset knob
+    // MARK: Plunger (count button)
 
-    private var resetKnob: some View {
+    private var plunger: some View {
         let width = diameter * 0.30
         let height = diameter * 0.19
         return ZStack {
@@ -149,7 +186,64 @@ struct TallyCounter: View {
                 .frame(width: width, height: height * 0.55)
                 .offset(y: -height * 0.5)
         }
-        .shadow(color: .black.opacity(0.6), radius: 3, y: 2)
+        .shadow(color: .black.opacity(0.6), radius: plungerPressed ? 1 : 3, y: plungerPressed ? 1 : 2)
+        // pushes down into the body while held
+        .offset(y: plungerPressed ? 4 : 0)
+        .animation(.easeOut(duration: 0.06), value: plungerPressed)
+        // generous hit area: the drawn knob is small
+        .padding(.horizontal, 14)
+        .padding(.top, 18)
+        .padding(.bottom, 6)
+        .holdToRepeat(isPressed: $plungerPressed, step: click)
+    }
+
+    // MARK: Reset knob
+
+    /// The small knurled knob on the side. Hold it to zero the drums.
+    private var resetKnob: some View {
+        let width = diameter * 0.14
+        let height = diameter * 0.17
+        return RoundedRectangle(cornerRadius: 3)
+            .fill(
+                LinearGradient(
+                    colors: [Color(white: 0.34), Color(white: 0.10), Color(white: 0.26)],
+                    startPoint: .top, endPoint: .bottom))
+            .overlay {
+                // knurling runs the other way on a side-mounted knob
+                VStack(spacing: 2) {
+                    ForEach(0..<6, id: \.self) { _ in
+                        Rectangle()
+                            .fill(.black.opacity(0.55))
+                            .frame(height: 1)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(.black.opacity(0.8), lineWidth: 0.8)
+            }
+            .overlay(alignment: .leading) {
+                // chrome collar where it enters the body
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(white: 0.95), Color(white: 0.5)],
+                            startPoint: .top, endPoint: .bottom))
+                    .frame(width: 2.5)
+            }
+            .frame(width: width, height: height)
+            .shadow(color: .black.opacity(0.6), radius: 2, y: 2)
+            // squeezes toward the body while held
+            .scaleEffect(x: resetPressed ? 0.75 : 1, anchor: .leading)
+            .animation(.easeOut(duration: 0.1), value: resetPressed)
+            .padding(10)
+            .contentShape(Rectangle())
+            .onLongPressGesture(minimumDuration: Self.resetHoldDuration) {
+                reset()
+            } onPressingChanged: { pressing in
+                resetPressed = pressing
+            }
     }
 
     // MARK: Digit window
@@ -190,8 +284,9 @@ struct TallyCounter: View {
                 Capsule().strokeBorder(.black.opacity(0.35), lineWidth: 0.8)
                 Capsule().strokeBorder(.black.opacity(0.35), lineWidth: 0.8).padding(4.2)
             }
-            .frame(width: diameter * 0.26, height: diameter * 0.44)
+            .frame(width: diameter * 0.28, height: diameter * 0.48)
             .rotationEffect(.degrees(28))
+            .shadow(color: .black.opacity(0.5), radius: 2, y: 2)
     }
 }
 
@@ -220,13 +315,10 @@ private struct DrumDigit: View {
 }
 
 #Preview("Tally counter") {
+    @Previewable @State var count = 27
     ZStack {
         WoodGrainBackground()
-        VStack(spacing: 40) {
-            TallyCounter(count: 0)
-            TallyCounter(count: 27, tilt: .degrees(16))
-            TallyCounter(count: 1234)
-        }
+        TallyCounter(count: $count, tilt: .degrees(16))
     }
     .preferredColorScheme(.dark)
 }

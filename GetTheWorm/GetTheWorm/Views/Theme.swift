@@ -151,6 +151,22 @@ struct HoldStepButton: View {
     let step: () -> Void
 
     @State private var isPressed = false
+
+    var body: some View {
+        Text(title)
+            .modifier(PlasticButtonSurface(isPressed: isPressed))
+            .holdToRepeat(isPressed: $isPressed, step: step)
+            .sensoryFeedback(.impact(weight: .medium), trigger: isPressed)
+    }
+}
+
+/// Press-and-hold repeat: one step the instant a finger lands, then steady
+/// repeats at a fixed fast cadence until it lifts. Shared by the HOUR/MIN
+/// buttons and the tally counter's knob.
+struct HoldRepeatModifier: ViewModifier {
+    @Binding var isPressed: Bool
+    let step: () -> Void
+
     @State private var repeatTask: Task<Void, Never>?
 
     /// Pause after the first step before the held repeat kicks in, then the
@@ -158,9 +174,8 @@ struct HoldStepButton: View {
     private static let holdDelay: Duration = .milliseconds(350)
     private static let stepInterval: Duration = .milliseconds(70)
 
-    var body: some View {
-        Text(title)
-            .modifier(PlasticButtonSurface(isPressed: isPressed))
+    func body(content: Content) -> some View {
+        content
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -172,7 +187,6 @@ struct HoldStepButton: View {
                     }
                     .onEnded { _ in stop() }
             )
-            .sensoryFeedback(.impact(weight: .medium), trigger: isPressed)
             .onDisappear { stop() }
     }
 
@@ -191,6 +205,12 @@ struct HoldStepButton: View {
         repeatTask?.cancel()
         repeatTask = nil
         isPressed = false
+    }
+}
+
+extension View {
+    func holdToRepeat(isPressed: Binding<Bool>, step: @escaping () -> Void) -> some View {
+        modifier(HoldRepeatModifier(isPressed: isPressed, step: step))
     }
 }
 

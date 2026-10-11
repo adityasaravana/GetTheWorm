@@ -29,6 +29,10 @@ final class AlarmSettings {
     /// recent past must not ambush you into ringing mode.
     /// Schema-level default keeps migration from older stores lightweight.
     var armedAt: Date = Date.distantPast
+    /// Mornings in a row the worm was won. A plain tally: a victory clicks it
+    /// up by one, and the counter on the nightstand can be clicked or reset
+    /// by hand. Schema-level default so older stores migrate in place.
+    var streak: Int = 0
 
     init(hour: Int = 7, minute: Int = 0, weekdays: [Int] = [2, 3, 4, 5, 6], isEnabled: Bool = false) {
         self.hour = hour
@@ -40,6 +44,7 @@ final class AlarmSettings {
         self.chainOccurrence = nil
         self.lastVictoryDate = nil
         self.armedAt = .now
+        self.streak = 0
     }
 
     var allAlarmIDs: [UUID] {
