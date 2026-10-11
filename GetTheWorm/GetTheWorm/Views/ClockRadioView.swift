@@ -12,6 +12,7 @@ struct ClockRadioView: View {
     @Bindable var settings: AlarmSettings
     var scheduler: AlarmScheduler
 
+    @Query private var wakeDays: [WakeDay]
     @State private var rearmTask: Task<Void, Never>?
 
     private static let weekdayLabels: [(number: Int, letter: String)] = [
@@ -23,6 +24,7 @@ struct ClockRadioView: View {
             WoodGrainBackground()
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
+                tallyShelf
                 clockCase
                 Spacer(minLength: 0)
             }
@@ -64,6 +66,24 @@ struct ClockRadioView: View {
                 }
                 .shadow(color: .black.opacity(0.8), radius: 24, y: 14)
         }
+    }
+
+    /// The tally counter sits on the table just behind the radio, off to one
+    /// side like someone set it down there.
+    private var tallyShelf: some View {
+        HStack {
+            Spacer()
+            TallyCounter(count: streak)
+                .padding(.trailing, 18)
+        }
+        .padding(.bottom, 22)
+    }
+
+    private var streak: Int {
+        let outcomes = Dictionary(
+            wakeDays.map { ($0.day, $0.wokeUp) },
+            uniquingKeysWith: { _, last in last })
+        return WakeLog.currentStreak(outcomes: outcomes, weekdays: settings.weekdays, today: .now)
     }
 
     private var brandPlate: some View {
